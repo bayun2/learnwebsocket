@@ -1,0 +1,21 @@
+{
+  "name": "learnwebsocket",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "server": "node node-stomp-broker/server.js"
+  },
+  "dependencies": {
+    "node-uuid": "^1.4.1",
+    "ws": "^0.4.31"
+  },
+  "devDependencies": {
+    "stompjs": "^2.3.3"
+  }
+}
