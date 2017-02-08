@@ -221,7 +221,8 @@ function StompServer(port) {
         });
     });
     var self = this;
-    var wss = new WebSocket.Server({server: self.server});
+    var wss = new WebSocket.Server({port});
+    //var wss = new WebSocket.Server({server: self.server});
     wss.on('connection', function(ws) {
       console.log('Received Unsecured Connection');
       new StompStreamHandler(ws, queueManager);
