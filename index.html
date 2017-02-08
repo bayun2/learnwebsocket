@@ -17,7 +17,10 @@
         var client = Stomp.client(url);
         var headers = {};
         client.connect(headers, function() {
-
+          client.send('/req/match/ready', {}, JSON.stringify({matchId:1}))
+          client.subscribe('/user/queue/match/ready', function() {
+            console.log(JSON.parse(message))
+          })
         })
         console.log(val);
       }

@@ -69,6 +69,7 @@ StompQueueManager.prototype.publish = function(queue, message) {
             body: 'Queue "' + frame.headers.destination + '" does not exist',
         });
     }
+
     var message = new StompFrame({
        command: 'MESSAGE',
        headers: {
@@ -196,6 +197,8 @@ function StompStreamHandler(ws, queueManager) {
             }
         }
         catch (e) {
+          console.log('7')
+          console.log(e)
             e.send(ws);
         }
     });
@@ -207,19 +210,19 @@ function StompStreamHandler(ws, queueManager) {
         if ('details' in err) {
             response.appendToBody(err['details']);
         }
-        response.ws(stream);
+        response.send(ws);
     });
 };
 
 function StompServer(port) {
     this.port = port;
     var queueManager = new StompQueueManager();
-    this.server = net.createServer(function(stream) {
-        stream.on('connect', function() {
-            console.log('Received Unsecured Connection');
-            // new StompStreamHandler(stream, queueManager);
-        });
-    });
+    // this.server = net.createServer(function(stream) {
+    //     stream.on('connect', function() {
+    //         console.log('Received Unsecured Connection');
+    //         // new StompStreamHandler(stream, queueManager);
+    //     });
+    // });
     var self = this;
     var wss = new WebSocket.Server({port});
     //var wss = new WebSocket.Server({server: self.server});
@@ -244,7 +247,7 @@ function SecureStompServer(port, credentials) {
     });
 }
 
-sys.inherits(SecureStompServer, StompServer);
+//sys.inherits(SecureStompServer, StompServer);
 
 StompServer.prototype.listen = function() {
     this.server.listen(this.port, 'localhost');
@@ -255,4 +258,4 @@ StompServer.prototype.stop = function(port) {
 };
 
 //new SecureStompServer(8124, credentials).listen();
-new StompServer(8125).listen();
+new StompServer(8125);
