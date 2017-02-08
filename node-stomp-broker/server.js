@@ -98,7 +98,7 @@ StompQueueManager.prototype.unsubscribe = function(queue, session) {
     });
 };
 
-function StompStreamHandler(stream, queueManager) {
+function StompStreamHandler(ws, queueManager) {
     var frameEmitter = new StompFrameEmitter(StompClientCommands);
     var authenticated = false;
     var sessionId = -1;
@@ -125,7 +125,7 @@ function StompStreamHandler(stream, queueManager) {
                     message: 'Not connected',
                 },
                 body: 'You must first issue a CONNECT command',
-            }).send(stream);
+            }).send(ws);
             return;
         }
         if (frame.command != 'CONNECT' && 'receipt' in frame.headers) {
@@ -134,7 +134,7 @@ function StompStreamHandler(stream, queueManager) {
                 headers: {
                     'receipt-id': frame.headers.receipt,
                 },
-            }).send(stream);
+            }).send(ws);
         }
         try {
             switch (frame.command) {
@@ -147,7 +147,7 @@ function StompStreamHandler(stream, queueManager) {
                         headers: {
                             session: sessionId,
                         }
-                    }).send(stream);
+                    }).send(ws);
                     break;
 
                 case 'SUBSCRIBE':
@@ -191,12 +191,12 @@ function StompStreamHandler(stream, queueManager) {
                     subscriptions.map(function(queue) {
                         queueManager.unsubscribe(queue, sessionId);
                     });
-                    stream.end();
+                    ws.close();
                     break;
             }
         }
         catch (e) {
-            e.send(stream);
+            e.send(ws);
         }
     });
 
@@ -207,7 +207,7 @@ function StompStreamHandler(stream, queueManager) {
         if ('details' in err) {
             response.appendToBody(err['details']);
         }
-        response.send(stream);
+        response.ws(stream);
     });
 };
 
