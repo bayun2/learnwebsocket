@@ -20,7 +20,7 @@
           client.subscribe('/user/queue/match/ready', function(message) {
             console.log(JSON.parse(message.body))
           })
-          client.send('/req/match/ready', {}, JSON.stringify({matchId:1}))
+          client.send('/req/match/ready', {}, JSON.stringify({matchId:2}))
 
         })
         console.log(val);

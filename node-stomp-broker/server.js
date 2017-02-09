@@ -28,20 +28,22 @@ var StompClientCommands = [
     'DISCONNECT',
 ];
 
-function StompSubscription(stream, session, ack) {
+function StompSubscription(ws, session, ack, id) {
     this.ack = ack;
     this.session = session;
-    this.stream = stream;
+    this.ws = ws;
+    this.id = id;
 };
 
 StompSubscription.prototype.send = function(stompFrame) {
-    stompFrame.send(this.stream);
+    stompFrame.send(this.ws);
 };
 
-function StompQueueManager() {
+function StompQueueManager({queueMap = {}} = {}) {
     this.queues = {};
     this.msgId = 0;
     this.sessionId = 0;
+    this.map = queueMap;
 };
 
 StompQueueManager.prototype.generateMessageId = function() {
@@ -52,35 +54,52 @@ StompQueueManager.prototype.generateSessionId = function() {
     return this.sessionId++;
 }
 
-StompQueueManager.prototype.subscribe = function(queue, stream, session, ack) {
+StompQueueManager.prototype.subscribe = function(queue, ws, session, ack, id) {
     if (!(queue in this.queues)) {
         this.queues[queue] = [];
     }
-    this.queues[queue].push(new StompSubscription(stream, session, ack));
+    this.queues[queue].push(new StompSubscription(ws, session, ack, id));
 };
 
 StompQueueManager.prototype.publish = function(queue, message) {
-    if (!(queue in this.queues)) {
-        throw new StompFrame({
-            command: 'ERROR',
-            headers: {
-                message: 'Queue does not exist',
-            },
-            body: 'Queue "' + frame.headers.destination + '" does not exist',
-        });
-    }
+  var receiveQueues = this.map[queue].path || [queue];
+  if (receiveQueues.indexOf(queue) === -1) {
+    receiveQueues.push(queue);
+  }
+  var noReceiveFlag = true;
+  if (this.map[queue]) {
+    message = JSON.parse(message);
+    message = Object.assign({}, message, this.map[queue].message);
+    message = JSON.stringify(message);
+  }
+  var msg = new StompFrame({
+     command: 'MESSAGE',
+     headers: {
+         'message-id': this.generateMessageId()
+     },
+     body: message,
+  });
 
-    var message = new StompFrame({
-       command: 'MESSAGE',
-       headers: {
-           'destination': queue,
-           'message-id': this.generateMessageId(),
-       },
-       body: message,
-    });
-    this.queues[queue].map(function(subscription) {
-       subscription.send(message);
-    });
+  receiveQueues.forEach(q => {
+    var subs = this.queues[q];
+    if (subs && subs.length) {
+      noReceiveFlag = false;
+      subs.forEach(function(subscription) {
+        msg.headers.subscription = subscription.id;
+        msg.headers.destination = q;
+        subscription.send(msg);
+      })
+    }
+  })
+  if (noReceiveFlag) {
+      throw new StompFrame({
+          command: 'ERROR',
+          headers: {
+              message: 'Queue does not exist',
+          },
+          body: 'Queue "' + 'queue' + '" does not exist',
+      });
+  }
 };
 
 StompQueueManager.prototype.unsubscribe = function(queue, session) {
@@ -153,8 +172,8 @@ function StompStreamHandler(ws, queueManager) {
 
                 case 'SUBSCRIBE':
                     queueManager.subscribe(frame.headers.destination,
-                                            stream, sessionId,
-                                            frame.headers.ack || "auto");
+                                            ws, sessionId,
+                                            frame.headers.ack || "auto", frame.headers['id']);
                     subscriptions.push(frame.headers.destination);
                     break;
 
@@ -197,8 +216,6 @@ function StompStreamHandler(ws, queueManager) {
             }
         }
         catch (e) {
-          console.log('7')
-          console.log(e)
             e.send(ws);
         }
     });
@@ -214,18 +231,12 @@ function StompStreamHandler(ws, queueManager) {
     });
 };
 
-function StompServer(port) {
+function StompServer({port=8125, queueMap={}}={}) {
     this.port = port;
-    var queueManager = new StompQueueManager();
-    // this.server = net.createServer(function(stream) {
-    //     stream.on('connect', function() {
-    //         console.log('Received Unsecured Connection');
-    //         // new StompStreamHandler(stream, queueManager);
-    //     });
-    // });
-    var self = this;
+    var queueManager = new StompQueueManager({
+      queueMap
+    });
     var wss = new WebSocket.Server({port});
-    //var wss = new WebSocket.Server({server: self.server});
     wss.on('connection', function(ws) {
       console.log('Received Unsecured Connection');
       new StompStreamHandler(ws, queueManager);
@@ -258,4 +269,12 @@ StompServer.prototype.stop = function(port) {
 };
 
 //new SecureStompServer(8124, credentials).listen();
-new StompServer(8125);
+new StompServer({
+  port: 8125,
+  queueMap: {
+    '/req/match/ready': {
+      path: ['/req/match/ready', '/user/queue/match/ready'],
+      message: {ready: 'ok'}
+    }
+  }
+});
